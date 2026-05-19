@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Local Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Heavy 3D Models / Assets
+frontend/models/*.vrm
+frontend/models/avatar.vrm
+
+# IDE / Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

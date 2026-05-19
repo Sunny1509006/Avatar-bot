@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aria - Live AI 3D Talking Avatar</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Three.js and Three-VRM Import Map -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.6/lib/three-vrm.module.js"
+        }
+      }
+    </script>
+</head>
+<body>
+    <!-- Immersive Backdrop Noise/Grid -->
+    <div class="ambient-glow bg-purple"></div>
+    <div class="ambient-glow bg-blue"></div>
+    
+    <!-- 3D Canvas Viewport -->
+    <div id="canvas-container"></div>
+    
+    <!-- Header / Brand Overlay -->
+    <header class="glass-panel">
+        <div class="logo">
+            <i class="fa-solid fa-wand-magic-sparkles magic-icon"></i>
+            <span>ARIA <span class="badge">3D AI</span></span>
+        </div>
+        <div class="status-indicator">
+            <span class="status-dot green"></span>
+            <span id="status-text">Ready</span>
+        </div>
+        <button id="toggle-settings" class="icon-button btn-glow" title="Settings">
+            <i class="fa-solid fa-gear"></i>
+        </button>
+    </header>
+
+    <!-- Side Chat Overlay -->
+    <main class="main-layout">
+        <!-- Floating Chat Log -->
+        <section id="chat-widget" class="glass-panel slide-in-left">
+            <div class="widget-header">
+                <h3><i class="fa-regular fa-comments"></i> Conversation</h3>
+                <button id="clear-chat" title="Clear log"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+            <div id="chat-messages" class="chat-messages">
+                <div class="message system">
+                    <div class="bubble">
+                        Hello! I am Aria, your AI talking avatar companion. Configure your keys in settings and start talking!
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Drag & Drop / Upload Overlay Helper -->
+        <section id="model-uploader" class="glass-panel fade-in">
+            <div class="uploader-header">
+                <h3><i class="fa-solid fa-user-astronaut"></i> Avatar Model</h3>
+            </div>
+            <div class="uploader-body">
+                <p>Using Pixiv VRM-Girl default model.</p>
+                <label class="custom-file-upload">
+                    <input type="file" id="vrm-file-input" accept=".vrm" />
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Load custom .VRM model
+                </label>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Actions Control Panel -->
+    <footer class="footer-controls slide-in-bottom">
+        <div class="controls-wrapper glass-panel">
+            <!-- Text message input -->
+            <input type="text" id="user-input" placeholder="Type a message to Aria..." autocomplete="off" />
+            
+            <!-- Voice Dictation / Talk Button -->
+            <button id="mic-btn" class="mic-btn pointer-events" title="Hold & speak (Uses Voice Dictation)">
+                <i class="fa-solid fa-microphone"></i>
+            </button>
+            
+            <!-- Send button -->
+            <button id="send-btn" class="send-btn" title="Send message">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Floating Settings Modal Overlay -->
+    <div id="settings-overlay" class="overlay hidden">
+        <div class="modal glass-panel scale-up">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-sliders"></i> Avatar Control Settings</h2>
+                <button id="close-settings" class="close-button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settings-form">
+                    <!-- LLM Configuration -->
+                    <div class="form-group">
+                        <label for="llm-provider">AI Provider</label>
+                        <select id="llm-provider">
+                            <option value="openai" selected>OpenAI (GPT-4o-mini)</option>
+                            <option value="gemini">Google Gemini (1.5 Flash)</option>
+                        </select>
+                    </div>
+
+                    <div id="openai-keys-group" class="form-group">
+                        <label for="openai-api-key">OpenAI API Key</label>
+                        <input type="password" id="openai-api-key" placeholder="sk-proj-..." />
+                        <span class="help-text">Your key is stored locally in your browser.</span>
+                    </div>
+
+                    <div id="gemini-keys-group" class="form-group hidden">
+                        <label for="gemini-api-key">Gemini API Key</label>
+                        <input type="password" id="gemini-api-key" placeholder="AIzaSy..." />
+                        <span class="help-text">Your key is stored locally in your browser.</span>
+                    </div>
+
+                    <!-- TTS Configuration -->
+                    <div class="form-group">
+                        <label for="tts-provider">Text-to-Speech Engine</label>
+                        <select id="tts-provider">
+                            <option value="google" selected>Google TTS (Free / Instant)</option>
+                            <option value="openai">OpenAI TTS (Premium / High Quality)</option>
+                        </select>
+                    </div>
+
+                    <div id="openai-tts-group" class="form-group hidden">
+                        <label for="tts-voice">OpenAI TTS Voice</label>
+                        <select id="tts-voice">
+                            <option value="alloy" selected>Alloy</option>
+                            <option value="echo">Echo</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                            <option value="nova">Nova</option>
+                            <option value="shimmer">Shimmer</option>
+                        </select>
+                    </div>
+
+                    <!-- Visual Configuration -->
+                    <div class="form-group">
+                        <label for="camera-fov">Camera FOV</label>
+                        <input type="range" id="camera-fov" min="20" max="65" value="35" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ambient-light-intensity">Ambient Light</label>
+                        <input type="range" id="ambient-light-intensity" min="0" max="2" step="0.1" value="1.0" />
+                    </div>
+
+                    <button type="submit" class="submit-btn">Save Configurations</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script module -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
