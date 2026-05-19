@@ -67,7 +67,7 @@ function init() {
     
     // Camera
     camera = new THREE.PerspectiveCamera(settings.cameraFov, window.innerWidth / window.innerHeight, 0.1, 20.0);
-    camera.position.set(0.0, 1.4, 1.3); // Focus on avatar head/shoulders
+    camera.position.set(0.0, 1.2, 1.8); // Zoom out to show full upper body
 
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -82,7 +82,7 @@ function init() {
     // Controls
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.screenSpacePanning = true;
-    orbitControls.target.set(0.0, 1.35, 0.0);
+    orbitControls.target.set(0.0, 1.2, 0.0); // Center target
     orbitControls.enableDamping = true;
     orbitControls.dampingFactor = 0.05;
     orbitControls.minDistance = 0.5;
@@ -102,9 +102,10 @@ function init() {
     scene.add(dirLight);
 
     // Floor and Grid
-    const gridHelper = new THREE.GridHelper(10, 20, 0x4f46e5, 0x1e1b4b);
-    gridHelper.position.y = -0.01;
-    scene.add(gridHelper);
+    // Commented out to prevent room-like view and keep UI floating & premium
+    // const gridHelper = new THREE.GridHelper(10, 20, 0x4f46e5, 0x1e1b4b);
+    // gridHelper.position.y = -0.01;
+    // scene.add(gridHelper);
 
     // Event Listeners
     window.addEventListener('resize', onWindowResize);
@@ -170,7 +171,14 @@ function loadModel(url, fallbackUrl = null) {
             // Position target for lookAt
             vrm.lookAt.target = new THREE.Object3D();
             scene.add(vrm.lookAt.target);
-
+            
+            // Center the avatar in the UI body by shifting her UP in world space
+            vrm.scene.position.y = 0.8;
+            
+            // Calculate head height dynamically for gaze tracking
+            const box = new THREE.Box3().setFromObject(vrm.scene);
+            vrm.headHeight = box.max.y * 0.90; // approx head level
+            
             updateStatus('Ready', 'green');
             console.log('Successfully loaded VRM model:', vrm);
         },
@@ -637,9 +645,10 @@ function animate() {
 
         // C. Cursor Head Tracking (LookAt target)
         // Project mouse position into 3D space to feed looking target
+        const lookAtHeight = currentVRM.headHeight || 1.35;
         targetLookAt.set(
             mousePosition.x * 2.0,
-            1.35 + mousePosition.y * 1.0,
+            lookAtHeight + mousePosition.y * 1.0,
             0.5
         );
         currentVRM.lookAt.target.position.copy(targetLookAt);
