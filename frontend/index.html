@@ -10,8 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Main Style Sheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     
     <!-- Three.js and Three-VRM Import Map -->
     <script type="importmap">
@@ -64,17 +63,42 @@
             </div>
         </section>
         
-        <!-- Drag & Drop / Upload Overlay Helper -->
+        <!-- Avatar Selector & Creator Hub -->
         <section id="model-uploader" class="glass-panel fade-in">
             <div class="uploader-header">
-                <h3><i class="fa-solid fa-user-astronaut"></i> Avatar Model</h3>
+                <h3><i class="fa-solid fa-user-gear"></i> Guide Avatar Hub</h3>
             </div>
             <div class="uploader-body">
-                <p>Using Pixiv VRM-Girl default model.</p>
-                <label class="custom-file-upload">
-                    <input type="file" id="vrm-file-input" accept=".vrm" />
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Load custom .VRM model
-                </label>
+                <!-- Switcher buttons -->
+                <div class="avatar-switcher-group">
+                    <button id="btn-avatar-anime" class="switcher-btn active" type="button" title="Switch to Anime Guide">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Aria (Anime)
+                    </button>
+                    <button id="btn-avatar-human" class="switcher-btn" type="button" title="Switch to Human Guide">
+                        <i class="fa-solid fa-user-tie"></i> Human Guide
+                    </button>
+                </div>
+
+                <!-- Anime Avatar Details -->
+                <div id="panel-avatar-anime" class="avatar-panel">
+                    <p class="avatar-desc">Using Pixiv VRM-Girl default anime companion guide.</p>
+                </div>
+
+                <!-- Human Avatar Details & Creator -->
+                <div id="panel-avatar-human" class="avatar-panel hidden">
+                    <p class="avatar-desc">Upload a human-style `.vrm` avatar. If you don't have one, create your realistic 3D avatar from a selfie for free!</p>
+                    
+                    <a href="https://avaturn.me" target="_blank" class="avatar-creator-btn">
+                        <i class="fa-solid fa-camera"></i> Create 3D Selfie Avatar
+                    </a>
+                    
+                    <div class="divider"><span>OR</span></div>
+                    
+                    <label class="custom-file-upload">
+                        <input type="file" id="vrm-file-input" accept=".vrm" />
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Human VRM
+                    </label>
+                </div>
             </div>
         </section>
     </main>
@@ -166,6 +190,6 @@
     </div>
 
     <!-- Script module -->
-    <script type="module" src="app.js?v=1779220649"></script>
+    <script type="module" src="app.js?v=2"></script>
 </body>
 </html>

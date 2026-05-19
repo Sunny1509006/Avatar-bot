@@ -47,6 +47,14 @@ const ttsProvider = document.getElementById('tts-provider');
 const vrmFileInput = document.getElementById('vrm-file-input');
 const clearChatBtn = document.getElementById('clear-chat');
 
+const btnAvatarAnime = document.getElementById('btn-avatar-anime');
+const btnAvatarHuman = document.getElementById('btn-avatar-human');
+const panelAvatarAnime = document.getElementById('panel-avatar-anime');
+const panelAvatarHuman = document.getElementById('panel-avatar-human');
+
+let customModelUrl = null;
+const defaultModelUrl = 'models/avatar.vrm';
+
 // Initialize settings from localStorage or defaults
 const settings = {
     provider: localStorage.getItem('aria_provider') || 'openai',
@@ -277,8 +285,13 @@ function setupUIEventListeners() {
     vrmFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            const blobUrl = URL.createObjectURL(file);
-            loadModel(blobUrl);
+            customModelUrl = URL.createObjectURL(file);
+            loadModel(customModelUrl);
+            // Auto switch active tab to Human
+            btnAvatarAnime.classList.remove('active');
+            btnAvatarHuman.classList.add('active');
+            panelAvatarAnime.classList.add('hidden');
+            panelAvatarHuman.classList.remove('hidden');
         }
     });
 
@@ -288,8 +301,38 @@ function setupUIEventListeners() {
         e.preventDefault();
         const file = e.dataTransfer.files[0];
         if (file && file.name.endsWith('.vrm')) {
-            const blobUrl = URL.createObjectURL(file);
-            loadModel(blobUrl);
+            customModelUrl = URL.createObjectURL(file);
+            loadModel(customModelUrl);
+            // Auto switch active tab to Human
+            btnAvatarAnime.classList.remove('active');
+            btnAvatarHuman.classList.add('active');
+            panelAvatarAnime.classList.add('hidden');
+            panelAvatarHuman.classList.remove('hidden');
+        }
+    });
+
+    // Toggle between Cartoon (Aria) and Custom Human Avatar panels and load models
+    btnAvatarAnime.addEventListener('click', () => {
+        if (!btnAvatarAnime.classList.contains('active')) {
+            btnAvatarAnime.classList.add('active');
+            btnAvatarHuman.classList.remove('active');
+            panelAvatarAnime.classList.remove('hidden');
+            panelAvatarHuman.classList.add('hidden');
+            loadModel(defaultModelUrl);
+        }
+    });
+
+    btnAvatarHuman.addEventListener('click', () => {
+        if (!btnAvatarHuman.classList.contains('active')) {
+            btnAvatarHuman.classList.add('active');
+            btnAvatarAnime.classList.remove('active');
+            panelAvatarHuman.classList.remove('hidden');
+            panelAvatarAnime.classList.add('hidden');
+            if (customModelUrl) {
+                loadModel(customModelUrl);
+            } else {
+                addChatMessage('System', 'Please select or drag-and-drop a human-style .VRM file to load your custom avatar guide.', 'system');
+            }
         }
     });
 
