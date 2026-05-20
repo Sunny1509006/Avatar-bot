@@ -93,11 +93,32 @@
                     </a>
                     
                     <div class="divider"><span>OR</span></div>
-                    
                     <label class="custom-file-upload">
-                        <input type="file" id="vrm-file-input" accept=".vrm" />
-                        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Human VRM
+                        <input type="file" id="vrm-file-input" accept=".vrm,.glb" />
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Human VRM/GLB
                     </label>
+
+                    <!-- Dynamic Calibrator Panel (Visible only when numeric GLB keys are detected) -->
+                    <div id="glb-calibrator" class="calibrator-panel hidden">
+                        <div class="calibrator-header">
+                            <h4><i class="fa-solid fa-sliders"></i> Expression Calibrator</h4>
+                            <p>Numeric shape keys detected. Please map the correct indices to lip-sync and blink:</p>
+                        </div>
+                        <div class="calibrator-row">
+                            <div class="calibrator-field">
+                                <label for="select-mouth-index">Mouth Open Index</label>
+                                <select id="select-mouth-index"></select>
+                            </div>
+                            <button id="btn-test-mouth" class="test-btn" type="button">Test</button>
+                        </div>
+                        <div class="calibrator-row">
+                            <div class="calibrator-field">
+                                <label for="select-blink-index">Blink Index</label>
+                                <select id="select-blink-index"></select>
+                            </div>
+                            <button id="btn-test-blink" class="test-btn" type="button">Test</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

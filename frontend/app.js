@@ -52,6 +52,17 @@ const btnAvatarHuman = document.getElementById('btn-avatar-human');
 const panelAvatarAnime = document.getElementById('panel-avatar-anime');
 const panelAvatarHuman = document.getElementById('panel-avatar-human');
 
+// Plan B Morph Calibrator Elements
+const defaultHumanModelUrl = 'models/human_avaturn_avatar.vrm';
+const glbCalibrator = document.getElementById('glb-calibrator');
+const selectMouthIndex = document.getElementById('select-mouth-index');
+const selectBlinkIndex = document.getElementById('select-blink-index');
+const btnTestMouth = document.getElementById('btn-test-mouth');
+const btnTestBlink = document.getElementById('btn-test-blink');
+
+let calibratedMouthIndex = localStorage.getItem('aria_calibrated_mouth_idx') !== null ? parseInt(localStorage.getItem('aria_calibrated_mouth_idx')) : null;
+let calibratedBlinkIndex = localStorage.getItem('aria_calibrated_blink_idx') !== null ? parseInt(localStorage.getItem('aria_calibrated_blink_idx')) : null;
+
 let customModelUrl = null;
 const defaultModelUrl = 'models/avatar.vrm';
 
@@ -160,7 +171,24 @@ function loadModel(url, fallbackUrl = null) {
     loader.load(
         url,
         (gltf) => {
-            const vrm = gltf.userData.vrm;
+            let vrm = gltf.userData.vrm;
+            
+            // Safe fallback if a standard GLB/GLTF model (without VRM extensions) is uploaded
+            if (!vrm) {
+                console.log('This is a standard GLB/GLTF model. Creating a safe VRM wrapper fallback.');
+                vrm = {
+                    scene: gltf.scene,
+                    expressionManager: null,
+                    humanoid: {
+                        getNormalizedBoneNode: () => null
+                    },
+                    lookAt: {
+                        target: new THREE.Object3D()
+                    },
+                    update: () => {}
+                };
+            }
+            
             currentVRM = vrm;
             
             // Disable frustum culling to prevent glitches when rotating camera
@@ -172,23 +200,187 @@ function loadModel(url, fallbackUrl = null) {
                 }
             });
 
-            // Adjust posture/bones if needed
-            vrm.scene.rotation.y = Math.PI; // Face towards camera
+            // Adjust posture/orientation based on format (VRM models face -Z, standard GLB face +Z)
+            if (gltf.userData.vrm) {
+                vrm.scene.rotation.y = Math.PI; // Face towards camera
+            } else {
+                vrm.scene.rotation.y = -Math.PI / 2; // Avaturn GLB models need a 90-degree offset to face front!
+            }
             scene.add(vrm.scene);
 
             // Position target for lookAt
             vrm.lookAt.target = new THREE.Object3D();
             scene.add(vrm.lookAt.target);
+
+            // 1. Dynamic Auto-Scale ONLY if abnormally huge (e.g. Centimeters vs Meters in weird GLB exports)
+            const initialBox = new THREE.Box3().setFromObject(vrm.scene);
+            const modelHeight = initialBox.max.y - initialBox.min.y;
+
+            if (modelHeight > 5.0) { // If model is > 5 meters tall, it was exported in cm, so normalize to 1.7m
+                const scaleFactor = 1.7 / modelHeight;
+                vrm.scene.scale.multiplyScalar(scaleFactor);
+            }
+
+            // 2. Base position setup
+            // Do NOT use bounding boxes for Y-position since invisible hair/bone meshes cause extreme inaccuracies.
+            vrm.scene.position.set(0, 0, 0);
+
+            // 3. Find morph target meshes for GLB fallback animations (talking, blinking) only if model lacks native VRM expression manager
+            vrm.morphTargetMeshes = [];
+            let hasNumericGLBKeys = false;
+
+            if (!gltf.userData.vrm) {
+                vrm.scene.traverse((object) => {
+                    object.frustumCulled = false;
+                    if (object.isMesh) {
+                        object.castShadow = true;
+                        object.receiveShadow = true;
+                        
+                        // Populate morph targets if available (standard in GLB exports)
+                        if (object.morphTargetDictionary && object.morphTargetInfluences) {
+                            vrm.morphTargetMeshes.push(object);
+                            
+                            const dict = object.morphTargetDictionary;
+                            const keys = Object.keys(dict);
+                            
+                            object.vrmFallbackMappings = {
+                                mouthOpenIndices: [],
+                                blinkIndices: []
+                            };
+                            
+                            if (keys.length > 0) {
+                                const isNumeric = keys.every(key => !isNaN(key));
+                                if (isNumeric) {
+                                    hasNumericGLBKeys = true;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // 4. Register fallback morph targets & toggle Calibrator UI once
+                if (hasNumericGLBKeys) {
+                    console.log('[GLB Loader] Numeric optimized morph target keys detected. Enabling Expression Calibrator Panel.');
+                    glbCalibrator.classList.remove('hidden');
+                    
+                    // Find the first mesh that has numeric keys to extract the index list
+                    const targetMesh = vrm.morphTargetMeshes.find(m => {
+                        const keys = Object.keys(m.morphTargetDictionary || {});
+                        return keys.length > 0 && keys.every(key => !isNaN(key));
+                    });
+                    
+                    if (targetMesh) {
+                        const dict = targetMesh.morphTargetDictionary;
+                        // Sort indices numerically
+                        const sortedKeys = Object.keys(dict).sort((a, b) => parseInt(a) - parseInt(b));
+                        
+                        // Clear and populate dropdown options
+                        selectMouthIndex.innerHTML = '';
+                        selectBlinkIndex.innerHTML = '';
+                        
+                        sortedKeys.forEach((key) => {
+                            const optionMouth = document.createElement('option');
+                            optionMouth.value = dict[key];
+                            optionMouth.textContent = `Index ${key}`;
+                            selectMouthIndex.appendChild(optionMouth);
+                            
+                            const optionBlink = document.createElement('option');
+                            optionBlink.value = dict[key];
+                            optionBlink.textContent = `Index ${key}`;
+                            selectBlinkIndex.appendChild(optionBlink);
+                        });
+                        
+                        // Set initial selected values or guess defaults
+                        if (calibratedMouthIndex !== null) {
+                            selectMouthIndex.value = calibratedMouthIndex;
+                        } else {
+                            // Guess mouth open index (typically index 15 or 10 or 0)
+                            selectMouthIndex.value = sortedKeys.includes('15') ? dict['15'] : (sortedKeys.includes('10') ? dict['10'] : dict[sortedKeys[0]]);
+                            calibratedMouthIndex = parseInt(selectMouthIndex.value);
+                        }
+                        
+                        if (calibratedBlinkIndex !== null) {
+                            selectBlinkIndex.value = calibratedBlinkIndex;
+                        } else {
+                            // Guess blink index (typically index 1 or 2 or 0)
+                            selectBlinkIndex.value = sortedKeys.includes('1') ? dict['1'] : (sortedKeys.includes('2') ? dict['2'] : dict[sortedKeys[0]]);
+                            calibratedBlinkIndex = parseInt(selectBlinkIndex.value);
+                        }
+                    }
+                    
+                    // Map the active calibrated indices across all morph target meshes
+                    vrm.morphTargetMeshes.forEach(mesh => {
+                        if (mesh.vrmFallbackMappings) {
+                            mesh.vrmFallbackMappings.mouthOpenIndices = [calibratedMouthIndex];
+                            mesh.vrmFallbackMappings.blinkIndices = [calibratedBlinkIndex];
+                        }
+                    });
+                } else {
+                    console.log('[GLB Loader] Standard alphabetical morph target keys detected. Using loose mapping.');
+                    glbCalibrator.classList.add('hidden');
+                    
+                    // Map alphabetical keys loosely
+                    vrm.morphTargetMeshes.forEach(mesh => {
+                        const dict = mesh.morphTargetDictionary || {};
+                        const keys = Object.keys(dict);
+                        
+                        keys.forEach((key) => {
+                            const lowerKey = key.toLowerCase();
+                            
+                            // Loose matching for mouth opening/lip syncing
+                            if (
+                                lowerKey === 'jawopen' || 
+                                lowerKey === 'mouthopen' || 
+                                lowerKey === 'jaw_open' || 
+                                lowerKey === 'mouth_open' ||
+                                lowerKey === 'mouthopenwide' ||
+                                lowerKey === 'mouth_open_wide' ||
+                                lowerKey.includes('viseme_aa') ||
+                                lowerKey.includes('viseme_o') ||
+                                lowerKey.includes('viseme_ah') ||
+                                lowerKey.includes('mouth_open') ||
+                                lowerKey.includes('jaw_open') ||
+                                lowerKey === 'mouthfunnel' ||
+                                lowerKey.includes('mouthlowerdown') ||
+                                lowerKey.includes('mouthupperup')
+                            ) {
+                                mesh.vrmFallbackMappings.mouthOpenIndices.push(dict[key]);
+                                console.log(`[GLB LipSync] Mapped talking shape: "${key}" (index ${dict[key]}) on mesh "${mesh.name}"`);
+                            }
+                            
+                            // Loose matching for blinking (Fixes unquoted syntax variables bug)
+                            if (
+                                lowerKey.includes('blink') || 
+                                lowerKey.includes('eye_closed') || 
+                                lowerKey.includes('eyesclosed') || 
+                                lowerKey.includes('eyeclosed') ||
+                                lowerKey.includes('blinkleft') ||
+                                lowerKey.includes('blinkright') ||
+                                lowerKey.includes('eye_blink')
+                            ) {
+                                mesh.vrmFallbackMappings.blinkIndices.push(dict[key]);
+                                console.log(`[GLB Blink] Mapped blinking shape: "${key}" (index ${dict[key]}) on mesh "${mesh.name}"`);
+                            }
+                        });
+                    });
+                }
+            } else {
+                // Native VRM detected - hide GLB Expression Calibrator panel completely
+                glbCalibrator.classList.add('hidden');
+            }
+
+            // 5. Focus camera perfectly on the upper body/face, completely bypassing unpredictable bounding boxes!
+            // By aiming the camera target much lower (Y=0.4, around waist/knees), the avatar's upper body and head 
+            // are forcefully pushed UP into the top half of the UI, completely eliminating the empty space at the top.
+            orbitControls.target.set(0.0, 0.4, 0.0);
+            camera.position.set(0.0, 0.8, 1.8); // Adjust position to maintain a flattering upper-body frame
             
-            // Center the avatar in the UI body by shifting her UP in world space
-            vrm.scene.position.y = 0.8;
-            
-            // Calculate head height dynamically for gaze tracking
-            const box = new THREE.Box3().setFromObject(vrm.scene);
-            vrm.headHeight = box.max.y * 0.90; // approx head level
+            // Set static head height for gaze tracking fallback
+            vrm.headHeight = 1.5;
+            orbitControls.update();
             
             updateStatus('Ready', 'green');
-            console.log('Successfully loaded VRM model:', vrm);
+            console.log('Successfully loaded model:', vrm);
         },
         (progress) => {
             const percentage = Math.round((progress.loaded / progress.total) * 100);
@@ -300,7 +492,8 @@ function setupUIEventListeners() {
     window.addEventListener('drop', (e) => {
         e.preventDefault();
         const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith('.vrm')) {
+        const ext = file && file.name.split('.').pop().toLowerCase();
+        if (file && (ext === 'vrm' || ext === 'glb')) {
             customModelUrl = URL.createObjectURL(file);
             loadModel(customModelUrl);
             // Auto switch active tab to Human
@@ -331,8 +524,65 @@ function setupUIEventListeners() {
             if (customModelUrl) {
                 loadModel(customModelUrl);
             } else {
-                addChatMessage('System', 'Please select or drag-and-drop a human-style .VRM file to load your custom avatar guide.', 'system');
+                loadModel(defaultHumanModelUrl);
             }
+        }
+    });
+
+    // Setup Calibrator event listeners for live shape updates
+    selectMouthIndex.addEventListener('change', (e) => {
+        calibratedMouthIndex = parseInt(e.target.value);
+        localStorage.setItem('aria_calibrated_mouth_idx', calibratedMouthIndex);
+        if (currentVRM && currentVRM.morphTargetMeshes) {
+            currentVRM.morphTargetMeshes.forEach(mesh => {
+                if (mesh.vrmFallbackMappings) {
+                    mesh.vrmFallbackMappings.mouthOpenIndices = [calibratedMouthIndex];
+                    console.log(`[GLB Calibrator] Updated mouth index to: ${calibratedMouthIndex}`);
+                }
+            });
+        }
+    });
+
+    selectBlinkIndex.addEventListener('change', (e) => {
+        calibratedBlinkIndex = parseInt(e.target.value);
+        localStorage.setItem('aria_calibrated_blink_idx', calibratedBlinkIndex);
+        if (currentVRM && currentVRM.morphTargetMeshes) {
+            currentVRM.morphTargetMeshes.forEach(mesh => {
+                if (mesh.vrmFallbackMappings) {
+                    mesh.vrmFallbackMappings.blinkIndices = [calibratedBlinkIndex];
+                    console.log(`[GLB Calibrator] Updated blink index to: ${calibratedBlinkIndex}`);
+                }
+            });
+        }
+    });
+
+    // Test Mouth Button triggers talking preview
+    btnTestMouth.addEventListener('click', () => {
+        if (currentVRM && currentVRM.morphTargetMeshes) {
+            currentVRM.morphTargetMeshes.forEach(mesh => {
+                const influences = mesh.morphTargetInfluences;
+                if (influences && calibratedMouthIndex !== null) {
+                    influences[calibratedMouthIndex] = 1.0; // Open mouth!
+                    setTimeout(() => {
+                        influences[calibratedMouthIndex] = 0.0; // Close mouth!
+                    }, 1000);
+                }
+            });
+        }
+    });
+
+    // Test Blink Button triggers blinking preview
+    btnTestBlink.addEventListener('click', () => {
+        if (currentVRM && currentVRM.morphTargetMeshes) {
+            currentVRM.morphTargetMeshes.forEach(mesh => {
+                const influences = mesh.morphTargetInfluences;
+                if (influences && calibratedBlinkIndex !== null) {
+                    influences[calibratedBlinkIndex] = 1.0; // Close eyes!
+                    setTimeout(() => {
+                        influences[calibratedBlinkIndex] = 0.0; // Open eyes!
+                    }, 1000);
+                }
+            });
         }
     });
 
@@ -542,6 +792,28 @@ function applyExpression(emotion) {
 }
 
 function vrmSetValueSafe(preset, val) {
+    // Plan B: GLB Fallback Morph Target mapping if model lacks VRM Expression Manager metadata
+    if (currentVRM && !currentVRM.expressionManager && currentVRM.morphTargetMeshes) {
+        currentVRM.morphTargetMeshes.forEach((mesh) => {
+            const influences = mesh.morphTargetInfluences;
+            const mappings = mesh.vrmFallbackMappings;
+            if (!influences || !mappings) return;
+            
+            if (preset === 'aa') {
+                // Boost standard GLB lip-sync values to make mouth movements highly visible and expressively open!
+                const boostedVal = Math.min(val * 2.2, 1.0);
+                mappings.mouthOpenIndices.forEach((idx) => {
+                    influences[idx] = boostedVal;
+                });
+            } else if (preset === 'blink') {
+                mappings.blinkIndices.forEach((idx) => {
+                    influences[idx] = val;
+                });
+            }
+        });
+        return;
+    }
+
     try {
         currentVRM.expressionManager.setValue(preset, val);
     } catch(e) {}

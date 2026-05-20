@@ -710,6 +710,91 @@ header {
     margin-left: .5em;
 }
 
+/* GLB Expression Calibrator Panel */
+.calibrator-panel {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    animation: scaleUp 0.3s ease;
+}
+
+.calibrator-header h4 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--secondary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.calibrator-header p {
+    font-size: 0.72rem !important;
+    line-height: 1.3;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.calibrator-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.calibrator-row:last-child {
+    margin-bottom: 0;
+}
+
+.calibrator-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.calibrator-field label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.calibrator-field select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: #fff;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.calibrator-field select:focus {
+    border-color: var(--secondary);
+}
+
+.test-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.test-btn:hover {
+    background: var(--secondary);
+    border-color: transparent;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
 /* Responsive adjustments */
 @media(max-width: 768px) {
     .main-layout {
